@@ -1,4 +1,4 @@
-package qanban.model;
+package se.canban.app.model;
 
 /**
  * Identifies a single task card by its location in the kanban tree.

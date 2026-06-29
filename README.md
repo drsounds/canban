@@ -1,7 +1,7 @@
-# Qanban
+# Canban
 
 A filesystem-backed Kanban board built with Java + SWT. There is no database,
-no file format and no cloud account — you just **Open a folder** and Qanban
+no file format and no cloud account — you just **Open a folder** and Canban
 creates a `kanban/` directory inside it. Everything you see in the UI is plain
 folders and Markdown files you can edit, grep, or commit to git.
 
@@ -28,7 +28,7 @@ order falls back to alphabetical.
 ## Using it
 
 1. **File ▸ Open Folder…** — pick any folder. If it has no `kanban/`
-   directory, Qanban offers to create one.
+   directory, Canban offers to create one.
 2. **New Board…** creates a board pre-filled with a `Backlog` lane and
    `To Do` / `Doing` / `Done` columns so it is usable immediately.
 3. **New Lane… / New Status…** add rows and columns.
@@ -46,9 +46,9 @@ Every action is written to the filesystem immediately.
 ```
 
 The script compiles `src/` against the SWT GTK jar in your local Maven
-repository and launches `qanban.Main`. SWT is platform-specific; this project is
+repository and launches `se.canban.app.Main`. SWT is platform-specific; this project is
 wired for **Linux GTK x86_64**. To run elsewhere, swap the SWT jar in `run.sh`
 and `.classpath` for the matching platform fragment.
 
-Inside Eclipse you can just run `qanban.Main` as a Java Application — the SWT jar
+Inside Eclipse you can just run `se.canban.app.Main` as a Java Application — the SWT jar
 is already on the project classpath (`.classpath`).

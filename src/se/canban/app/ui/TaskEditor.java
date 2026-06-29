@@ -1,4 +1,4 @@
-package qanban.ui;
+package se.canban.app.ui;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
@@ -10,8 +10,8 @@ import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 
-import qanban.model.KanbanStore;
-import qanban.model.Task;
+import se.canban.app.model.KanbanStore;
+import se.canban.app.model.Task;
 
 /**
  * Modal editor for a single task: rename the card and edit its Markdown body.

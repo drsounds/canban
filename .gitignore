@@ -1,0 +1,8 @@
+# compiled output
+/bin/
+
+# jpackage / CI build output
+/build/
+
+# downloaded SWT jar (fetched per-platform by run.sh / CI)
+swt.jar

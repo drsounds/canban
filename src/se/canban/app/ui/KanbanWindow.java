@@ -1,4 +1,4 @@
-package qanban.ui;
+package se.canban.app.ui;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -31,8 +31,8 @@ import org.eclipse.swt.widgets.Text;
 import org.eclipse.swt.custom.ScrolledComposite;
 import org.eclipse.swt.widgets.DirectoryDialog;
 
-import qanban.model.KanbanStore;
-import qanban.model.Task;
+import se.canban.app.model.KanbanStore;
+import se.canban.app.model.Task;
 
 /**
  * Main application window. Pick a folder, get a {@code kanban/} directory, then
@@ -57,7 +57,7 @@ public final class KanbanWindow {
 	public KanbanWindow(Display display) {
 		this.display = display;
 		this.shell = new Shell(display);
-		this.shell.setText("Qanban");
+		this.shell.setText("Canban");
 		this.shell.setSize(1000, 680);
 		this.shell.setLayout(new GridLayout(1, false));
 		buildMenu();
@@ -150,7 +150,7 @@ public final class KanbanWindow {
 			Path k = KanbanStore.ensureKanbanDir(parent);
 			store = new KanbanStore(k);
 			currentBoard = null;
-			shell.setText("Qanban – " + k);
+			shell.setText("Canban – " + k);
 			refresh();
 		} catch (IOException e) {
 			error(e.getMessage());

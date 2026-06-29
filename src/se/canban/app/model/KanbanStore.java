@@ -1,4 +1,4 @@
-package qanban.model;
+package se.canban.app.model;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

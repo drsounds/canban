@@ -1,8 +1,8 @@
-package qanban;
+package se.canban.app;
 
 import org.eclipse.swt.widgets.Display;
 
-import qanban.ui.KanbanWindow;
+import se.canban.app.ui.KanbanWindow;
 
 /**
  * Entry point for Qanban, a filesystem-backed Kanban board built on SWT.
