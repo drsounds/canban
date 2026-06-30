@@ -24,7 +24,7 @@ captured by the same version-control system that tracks the code.
 The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** are
 to be interpreted as described in RFC 2119.
 
-- **Root** — the `kanban/` directory that contains an FSK dataset.
+- **Root** — the `.kanban/` directory that contains an FSK dataset.
 - **Board** — a directory directly under the root representing one Kanban board.
 - **Lane** — a directory under a board representing a horizontal swimlane (row).
 - **Status** — a directory under a lane representing a workflow column.
@@ -69,10 +69,10 @@ something SaaS activity feeds rarely provide.
 
 ### 3.1 Directory layout
 
-A conformant dataset is rooted at a directory named `kanban/`:
+A conformant dataset is rooted at a directory named `.kanban/`:
 
 ```
-kanban/
+.kanban/
 ├── <board>/
 │   ├── .lanes
 │   ├── .statuses
@@ -128,30 +128,30 @@ loses tasks.
 
 | Operation        | Filesystem effect                                              |
 |------------------|---------------------------------------------------------------|
-| Create task      | Write `kanban/<b>/<l>/<s>/<name>.md`                           |
+| Create task      | Write `.kanban/<b>/<l>/<s>/<name>.md`                           |
 | Edit task        | Overwrite the file body                                        |
 | Rename task      | Rename the file within its cell                                |
 | Move task        | Move the file to another lane/status directory                 |
 | Delete task      | Remove the file                                                |
 | Create lane      | `mkdir` the lane and mirror existing status subdirectories     |
 | Create status    | `mkdir` that status under every lane                           |
-| Tag / untag task | Create / remove a symbolic link under `kanban/tag/<slug>/`     |
+| Tag / untag task | Create / remove a symbolic link under `.kanban/tag/<slug>/`     |
 
 A **move MUST be a rename of the file**, not a copy-and-delete, so that version
 control records it as a single coherent change and history is preserved.
 
 ### 3.5 Tags
 
-Tags live under the reserved root directory `kanban/tag/`. Each tag is a
+Tags live under the reserved root directory `.kanban/tag/`. Each tag is a
 directory whose name is a **slug**, and it contains one symbolic link per tagged
 task:
 
 ```
-kanban/tag/urgent/Build login.md -> ../../Web/Backlog/Doing/Build login.md
+.kanban/tag/urgent/Build login.md -> ../../Web/Backlog/Doing/Build login.md
 ```
 
 - A tag link **MUST** be a **relative** symbolic link whose target resolves to
-  the task file. Relative targets keep the entire `kanban/` tree relocatable and
+  the task file. Relative targets keep the entire `.kanban/` tree relocatable and
   clonable.
 - A slug **SHOULD** match `^[a-z0-9]+(-[a-z0-9]+)*$`. Implementations producing
   tags from free text **SHOULD** lower-case, replace runs of non-alphanumerics
@@ -163,7 +163,7 @@ kanban/tag/urgent/Build login.md -> ../../Web/Backlog/Doing/Build login.md
   remove the corresponding tag links so that no dangling links remain. A tag
   directory that becomes empty **SHOULD** be removed.
 
-Tags are an index, never the source of truth: deleting the entire `kanban/tag/`
+Tags are an index, never the source of truth: deleting the entire `.kanban/tag/`
 tree loses only labels, never tasks.
 
 ### 3.6 Conformance
@@ -181,10 +181,10 @@ tools that integrate with git and informative otherwise.
 
 ### 4.1 The board's history is the project's history
 
-Each commit that touches `kanban/` is an entry in the board's audit log:
+Each commit that touches `.kanban/` is an entry in the board's audit log:
 
 ```
-$ git log --oneline -- kanban/
+$ git log --oneline -- .kanban/
 a1b9f2c Move "Build login" Doing -> Done
 4e7c0d1 Add task "Build login" to Web/Backlog/To Do
 9bd33a8 Tag "Build login" #urgent
@@ -274,12 +274,12 @@ agent-action log to trust: the git log *is* the log.
 ## 6. Security and integrity considerations
 
 - **Symbolic links.** Tag links are relative and **MUST** resolve within the
-  `kanban/` tree. Readers **SHOULD** reject or ignore links whose resolved target
+  `.kanban/` tree. Readers **SHOULD** reject or ignore links whose resolved target
   escapes the root, to avoid path-traversal when a dataset is untrusted.
 - **Path safety.** Task/board/lane/status names become path components.
   Implementations **MUST** reject names containing path separators or the
   components `.` and `..`, and **SHOULD** reject control characters.
-- **Untrusted datasets.** Treat a cloned `kanban/` like any untrusted repo
+- **Untrusted datasets.** Treat a cloned `.kanban/` like any untrusted repo
   content: do not execute task bodies, and sandbox agents that act on them.
 - **Tamper evidence.** Use signed commits where the audit trail is relied upon
   for compliance; the integrity guarantee is the VCS's, not FSK's.
@@ -297,13 +297,13 @@ remain portable to case-insensitive filesystems.
 
 *Canban* (this repository) is the reference implementation: a Java + SWT desktop
 client. It demonstrates boards/lanes/statuses as directories, tasks as Markdown
-files, `.lanes`/`.statuses` ordering, and the `kanban/tag/` symlink index with
+files, `.lanes`/`.statuses` ordering, and the `.kanban/tag/` symlink index with
 automatic relinking on move/rename/delete.
 
 ## Appendix A. Example tree
 
 ```
-kanban/
+.kanban/
 ├── Web/
 │   ├── .lanes            # Backlog\nIn sprint
 │   ├── .statuses         # To Do\nDoing\nDone

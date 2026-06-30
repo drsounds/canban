@@ -2,7 +2,7 @@
 
 A filesystem-backed Kanban board built with Java + SWT. There is no database,
 no proprietary file format and no cloud account — you just **Open a folder** and
-Canban creates a `kanban/` directory inside it. Everything you see in the UI is
+Canban creates a `.kanban/` directory inside it. Everything you see in the UI is
 plain folders and Markdown files you can edit, `grep`, diff, and commit to git.
 
 The on-disk layout is a small open specification — see
@@ -15,7 +15,7 @@ Canban is just one client of it.
   script, or editor can read and write it; Canban is replaceable.
 - **No third-party service.** Your roadmap doesn't live in someone else's SaaS.
   Nothing to host, no account, no API limits, works offline.
-- **Lives in the repository.** Drop `kanban/` next to your code. The board is
+- **Lives in the repository.** Drop `.kanban/` next to your code. The board is
   versioned, branched, and reviewed exactly like the project it describes.
 - **Audit trail for free.** Because moving a card is moving a file, `git log`
   becomes a complete, signed, timestamped history of who changed what, when, and
@@ -27,7 +27,7 @@ Canban is just one client of it.
 ## Layout on disk
 
 ```
-kanban/
+.kanban/
 ├── <board>/
 │   ├── .lanes        # optional: lane (row) order, one name per line
 │   ├── .statuses     # optional: status (column) order, one name per line
@@ -39,11 +39,11 @@ kanban/
         └── <task>.md -> ../../<board>/<lane>/<status>/<task>.md   # relative symlink
 ```
 
-- **Boards** are top-level directories under `kanban/`.
+- **Boards** are top-level directories under `.kanban/`.
 - **Lanes** are the rows of a board (swimlanes).
 - **Statuses** are the columns (e.g. To Do / Doing / Done).
 - **Tasks** are `.md` files; the file contents are the card body.
-- **Tags** live in the reserved `kanban/tag/` directory: each tag is a folder of
+- **Tags** live in the reserved `.kanban/tag/` directory: each tag is a folder of
   *relative* symbolic links pointing back at the tagged task files. The links are
   kept in sync automatically as tasks move, get renamed, or are deleted.
 
@@ -52,7 +52,7 @@ falls back to alphabetical.
 
 ## Using it
 
-1. **File ▸ Open Folder…** — pick any folder. If it has no `kanban/` directory,
+1. **File ▸ Open Folder…** — pick any folder. If it has no `.kanban/` directory,
    Canban offers to create one.
 2. **New Board…** creates a board pre-filled with a `Backlog` lane and
    `To Do` / `Doing` / `Done` columns so it is usable immediately.

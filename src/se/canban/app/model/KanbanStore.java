@@ -17,10 +17,10 @@ import java.util.stream.Stream;
 /**
  * Filesystem-backed Kanban data store.
  *
- * <p>Everything lives under a single {@code kanban/} directory and maps directly
+ * <p>Everything lives under a single {@code .kanban/} directory and maps directly
  * onto folders and files:
  * <pre>
- *   kanban/&lt;board&gt;/&lt;lane&gt;/&lt;status&gt;/&lt;task&gt;.md
+ *   .kanban/&lt;board&gt;/&lt;lane&gt;/&lt;status&gt;/&lt;task&gt;.md
  * </pre>
  *
  * <p>Boards, lanes and statuses are directories; tasks are Markdown files whose
@@ -30,15 +30,18 @@ import java.util.stream.Stream;
  * plain text, one name per line, and are optional &mdash; if absent, ordering
  * falls back to case-insensitive alphabetical.
  *
- * <p>Tags live in a reserved sibling directory {@code kanban/tag/}. Each tag is
+ * <p>Tags live in a reserved sibling directory {@code .kanban/tag/}. Each tag is
  * a folder named after a slug and holds <em>relative</em> symbolic links back to
  * the tagged task files:
  * <pre>
- *   kanban/tag/&lt;tag-slug&gt;/&lt;task&gt;.md -&gt; ../../&lt;board&gt;/&lt;lane&gt;/&lt;status&gt;/&lt;task&gt;.md
+ *   .kanban/tag/&lt;tag-slug&gt;/&lt;task&gt;.md -&gt; ../../&lt;board&gt;/&lt;lane&gt;/&lt;status&gt;/&lt;task&gt;.md
  * </pre>
  * The links are kept in sync as tasks are moved, renamed and deleted.
  */
 public final class KanbanStore {
+
+	/** Name of the dataset root directory; hidden ("dot") for safety. */
+	public static final String DIRECTORY_NAME = ".kanban";
 
 	private static final String STATUS_ORDER = ".statuses";
 	private static final String LANE_ORDER = ".lanes";
@@ -57,11 +60,11 @@ public final class KanbanStore {
 	}
 
 	/**
-	 * Resolves (and creates if missing) the {@code kanban/} directory inside the
+	 * Resolves (and creates if missing) the {@code .kanban/} directory inside the
 	 * given parent folder.
 	 */
 	public static Path ensureKanbanDir(Path parent) throws IOException {
-		Path k = parent.resolve("kanban");
+		Path k = parent.resolve(DIRECTORY_NAME);
 		Files.createDirectories(k);
 		return k;
 	}
@@ -223,7 +226,7 @@ public final class KanbanStore {
 
 	// --- tags --------------------------------------------------------------
 
-	/** All known tag slugs (the folder names under {@code kanban/tag/}). */
+	/** All known tag slugs (the folder names under {@code .kanban/tag/}). */
 	public List<String> tags() {
 		return childDirs(kanbanDir.resolve(TAG_DIR));
 	}
@@ -242,7 +245,7 @@ public final class KanbanStore {
 
 	/**
 	 * Tags a task by creating a relative symbolic link under
-	 * {@code kanban/tag/<slug>/}. No-op if the task already carries the tag.
+	 * {@code .kanban/tag/<slug>/}. No-op if the task already carries the tag.
 	 *
 	 * @return the slug that was applied
 	 */

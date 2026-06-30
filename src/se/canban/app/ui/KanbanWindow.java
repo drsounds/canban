@@ -36,7 +36,7 @@ import se.canban.app.model.KanbanStore;
 import se.canban.app.model.Task;
 
 /**
- * Main application window. Pick a folder, get a {@code kanban/} directory, then
+ * Main application window. Pick a folder, get a {@code .kanban/} directory, then
  * see each board as a grid of lanes (rows) × statuses (columns) with draggable
  * task cards. Every change is written straight to the filesystem.
  */
@@ -150,11 +150,11 @@ public final class KanbanWindow {
 			return;
 		}
 		Path parent = Path.of(chosen);
-		Path kanban = parent.resolve("kanban");
+		Path kanban = parent.resolve(KanbanStore.DIRECTORY_NAME);
 		if (!Files.isDirectory(kanban)) {
 			MessageBox box = new MessageBox(shell, SWT.ICON_QUESTION | SWT.YES | SWT.NO);
-			box.setText("Create kanban directory");
-			box.setMessage("No 'kanban' directory found in:\n" + parent
+			box.setText("Create " + KanbanStore.DIRECTORY_NAME + " directory");
+			box.setMessage("No '" + KanbanStore.DIRECTORY_NAME + "' directory found in:\n" + parent
 					+ "\n\nCreate one here?");
 			if (box.open() != SWT.YES) {
 				return;
@@ -296,7 +296,7 @@ public final class KanbanWindow {
 			Composite empty = new Composite(scroll, SWT.NONE);
 			empty.setLayout(new GridLayout(1, false));
 			Label l = new Label(empty, SWT.NONE);
-			l.setText("Use File ▸ Open Folder… to choose where your kanban/ directory lives.");
+			l.setText("Use File ▸ Open Folder… to choose where your .kanban/ directory lives.");
 			return empty;
 		}
 		if (currentBoard == null) {
