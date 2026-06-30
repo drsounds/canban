@@ -31,10 +31,11 @@ import java.util.stream.Stream;
  * falls back to case-insensitive alphabetical.
  *
  * <p>Tags live in a reserved sibling directory {@code .kanban/tag/}. Each tag is
- * a folder named after a slug and holds <em>relative</em> symbolic links back to
- * the tagged task files:
+ * a folder named after a slug; its task members are <em>relative</em> symbolic
+ * links kept in a {@code tasks/} sub-folder, leaving room to extend the tag
+ * folder with other metadata later:
  * <pre>
- *   .kanban/tag/&lt;tag-slug&gt;/&lt;task&gt;.md -&gt; ../../&lt;board&gt;/&lt;lane&gt;/&lt;status&gt;/&lt;task&gt;.md
+ *   .kanban/tag/&lt;tag-slug&gt;/tasks/&lt;task&gt;.md -&gt; ../../../&lt;board&gt;/&lt;lane&gt;/&lt;status&gt;/&lt;task&gt;.md
  * </pre>
  * The links are kept in sync as tasks are moved, renamed and deleted.
  */
@@ -46,8 +47,11 @@ public final class KanbanStore {
 	private static final String STATUS_ORDER = ".statuses";
 	private static final String LANE_ORDER = ".lanes";
 
-	/** Reserved top-level directory holding tag folders of symbolic links. */
+	/** Reserved top-level directory holding tag folders. */
 	private static final String TAG_DIR = "tag";
+
+	/** Sub-directory of a tag folder that holds the task symbolic links. */
+	private static final String TAG_TASKS = "tasks";
 
 	private final Path kanbanDir;
 
@@ -183,7 +187,7 @@ public final class KanbanStore {
 		Files.deleteIfExists(taskFile(task));
 		for (Path link : links) {
 			Files.deleteIfExists(link);
-			deleteIfEmpty(link.getParent());
+			pruneTagDirs(link.getParent());
 		}
 	}
 
@@ -231,12 +235,17 @@ public final class KanbanStore {
 		return childDirs(kanbanDir.resolve(TAG_DIR));
 	}
 
+	/** The {@code tasks/} link folder for a tag slug. */
+	private Path tagTasksDir(String slug) {
+		return kanbanDir.resolve(TAG_DIR).resolve(slug).resolve(TAG_TASKS);
+	}
+
 	/** Tag slugs currently applied to the given task. */
 	public List<String> tagsForTask(Task task) {
 		Path canonical = canonical(taskFile(task));
 		List<String> result = new ArrayList<>();
 		for (String slug : tags()) {
-			if (!linksInDirTo(kanbanDir.resolve(TAG_DIR).resolve(slug), canonical).isEmpty()) {
+			if (!linksInDirTo(tagTasksDir(slug), canonical).isEmpty()) {
 				result.add(slug);
 			}
 		}
@@ -245,7 +254,7 @@ public final class KanbanStore {
 
 	/**
 	 * Tags a task by creating a relative symbolic link under
-	 * {@code .kanban/tag/<slug>/}. No-op if the task already carries the tag.
+	 * {@code .kanban/tag/<slug>/tasks/}. No-op if the task already carries the tag.
 	 *
 	 * @return the slug that was applied
 	 */
@@ -261,20 +270,19 @@ public final class KanbanStore {
 		if (tagsForTask(task).contains(slug)) {
 			return slug;
 		}
-		Path dir = kanbanDir.resolve(TAG_DIR).resolve(slug);
+		Path dir = tagTasksDir(slug);
 		Files.createDirectories(dir);
 		Path link = uniqueLink(dir, task.name());
 		Files.createSymbolicLink(link, dir.relativize(target));
 		return slug;
 	}
 
-	/** Removes a tag from a task (and the tag folder if it becomes empty). */
+	/** Removes a tag from a task, pruning the link folder (and tag folder) if empty. */
 	public void removeTag(Task task, String slug) throws IOException {
-		Path dir = kanbanDir.resolve(TAG_DIR).resolve(slug);
-		for (Path link : linksInDirTo(dir, canonical(taskFile(task)))) {
+		for (Path link : linksInDirTo(tagTasksDir(slug), canonical(taskFile(task)))) {
 			Files.delete(link);
 		}
-		deleteIfEmpty(dir);
+		pruneTagDirs(tagTasksDir(slug));
 	}
 
 	/** Normalises arbitrary text into a filesystem-safe tag slug. */
@@ -289,9 +297,15 @@ public final class KanbanStore {
 		Path canonical = canonical(taskFile);
 		List<Path> out = new ArrayList<>();
 		for (String slug : tags()) {
-			out.addAll(linksInDirTo(kanbanDir.resolve(TAG_DIR).resolve(slug), canonical));
+			out.addAll(linksInDirTo(tagTasksDir(slug), canonical));
 		}
 		return out;
+	}
+
+	/** Removes the {@code tasks/} folder and its tag folder if each is now empty. */
+	private static void pruneTagDirs(Path tasksDir) throws IOException {
+		deleteIfEmpty(tasksDir);
+		deleteIfEmpty(tasksDir.getParent());
 	}
 
 	private void rebindLinks(List<Path> links, Path newTarget) throws IOException {

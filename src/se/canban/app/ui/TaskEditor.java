@@ -68,7 +68,7 @@ final class TaskEditor {
 		new Label(shell, SWT.NONE).setText("Tags:");
 		Text tagsText = new Text(shell, SWT.BORDER | SWT.SINGLE);
 		tagsText.setText(String.join(", ", store.tagsForTask(task)));
-		tagsText.setToolTipText("Comma- or space-separated; stored as .kanban/tag/<slug>/ links");
+		tagsText.setToolTipText("Comma- or space-separated; stored as .kanban/tag/<slug>/tasks/ links");
 		tagsText.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
 
 		Label bodyLabel = new Label(shell, SWT.NONE);

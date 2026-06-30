@@ -36,16 +36,19 @@ Canban is just one client of it.
 │           └── <task name>.md       # the card body (Markdown)
 └── tag/
     └── <tag-slug>/
-        └── <task>.md -> ../../<board>/<lane>/<status>/<task>.md   # relative symlink
+        └── tasks/
+            └── <task>.md -> ../../../<board>/<lane>/<status>/<task>.md   # relative symlink
 ```
 
 - **Boards** are top-level directories under `.kanban/`.
 - **Lanes** are the rows of a board (swimlanes).
 - **Statuses** are the columns (e.g. To Do / Doing / Done).
 - **Tasks** are `.md` files; the file contents are the card body.
-- **Tags** live in the reserved `.kanban/tag/` directory: each tag is a folder of
-  *relative* symbolic links pointing back at the tagged task files. The links are
-  kept in sync automatically as tasks move, get renamed, or are deleted.
+- **Tags** live in the reserved `.kanban/tag/` directory: each tag is a folder
+  whose `tasks/` sub-folder holds *relative* symbolic links pointing back at the
+  tagged task files. The links are kept in sync automatically as tasks move, get
+  renamed, or are deleted. Keeping links in `tasks/` leaves the tag folder free
+  to be extended with per-tag metadata later.
 
 The two dot-files keep a meaningful row/column order. If they are missing, order
 falls back to alphabetical.

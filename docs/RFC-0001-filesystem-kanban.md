@@ -135,7 +135,7 @@ loses tasks.
 | Delete task      | Remove the file                                                |
 | Create lane      | `mkdir` the lane and mirror existing status subdirectories     |
 | Create status    | `mkdir` that status under every lane                           |
-| Tag / untag task | Create / remove a symbolic link under `.kanban/tag/<slug>/`     |
+| Tag / untag task | Create / remove a symlink under `.kanban/tag/<slug>/tasks/`     |
 
 A **move MUST be a rename of the file**, not a copy-and-delete, so that version
 control records it as a single coherent change and history is preserved.
@@ -143,16 +143,26 @@ control records it as a single coherent change and history is preserved.
 ### 3.5 Tags
 
 Tags live under the reserved root directory `.kanban/tag/`. Each tag is a
-directory whose name is a **slug**, and it contains one symbolic link per tagged
-task:
+directory whose name is a **slug**. Its task members are symbolic links held in a
+`tasks/` sub-folder, one link per tagged task:
 
 ```
-.kanban/tag/urgent/Build login.md -> ../../Web/Backlog/Doing/Build login.md
+.kanban/tag/urgent/
+├── tasks/
+│   └── Build login.md -> ../../../Web/Backlog/Doing/Build login.md
+└── …                       # reserved for future per-tag metadata
 ```
+
+The `tasks/` sub-folder exists so that a tag folder can be **extended** with
+additional well-known entries in future revisions (for example a `meta.md`
+description, a colour, or a `tag.yaml`) without colliding with the task links.
+Implementations **MUST** read and write task membership only under
+`<slug>/tasks/`, and **MUST** ignore (and preserve) any other entries in a tag
+folder they do not understand.
 
 - A tag link **MUST** be a **relative** symbolic link whose target resolves to
   the task file. Relative targets keep the entire `.kanban/` tree relocatable and
-  clonable.
+  clonable. (Because links sit one level deeper, the target begins `../../../`.)
 - A slug **SHOULD** match `^[a-z0-9]+(-[a-z0-9]+)*$`. Implementations producing
   tags from free text **SHOULD** lower-case, replace runs of non-alphanumerics
   with `-`, and trim leading/trailing `-`.
@@ -160,8 +170,9 @@ task:
   link **target**, not the link name. Implementations **MUST** resolve targets to
   decide which tasks a tag contains.
 - When a task is moved, renamed, or deleted, implementations **MUST** update or
-  remove the corresponding tag links so that no dangling links remain. A tag
-  directory that becomes empty **SHOULD** be removed.
+  remove the corresponding tag links so that no dangling links remain. A `tasks/`
+  sub-folder that becomes empty **SHOULD** be removed, and the tag folder itself
+  **SHOULD** be removed only when it holds nothing else.
 
 Tags are an index, never the source of truth: deleting the entire `.kanban/tag/`
 tree loses only labels, never tasks.
@@ -320,7 +331,9 @@ automatic relinking on move/rename/delete.
 │           └── Set up CI.md
 └── tag/
     ├── urgent/
-    │   └── Build login.md -> ../../Web/In sprint/Doing/Build login.md
+    │   └── tasks/
+    │       └── Build login.md -> ../../../Web/In sprint/Doing/Build login.md
     └── agent/
-        └── Set up CI.md  -> ../../Web/In sprint/Done/Set up CI.md
+        └── tasks/
+            └── Set up CI.md  -> ../../../Web/In sprint/Done/Set up CI.md
 ```
