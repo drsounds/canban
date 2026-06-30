@@ -1,5 +1,10 @@
 package se.canban.app.ui;
 
+import java.io.IOException;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
@@ -60,6 +65,12 @@ final class TaskEditor {
 		nameText.setText(task.name());
 		nameText.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
 
+		new Label(shell, SWT.NONE).setText("Tags:");
+		Text tagsText = new Text(shell, SWT.BORDER | SWT.SINGLE);
+		tagsText.setText(String.join(", ", store.tagsForTask(task)));
+		tagsText.setToolTipText("Comma- or space-separated; stored as kanban/tag/<slug>/ links");
+		tagsText.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
+
 		Label bodyLabel = new Label(shell, SWT.NONE);
 		bodyLabel.setText("Content (Markdown):");
 		bodyLabel.setLayoutData(new GridData(SWT.LEFT, SWT.TOP, false, false, 2, 1));
@@ -96,6 +107,7 @@ final class TaskEditor {
 			try {
 				task = store.renameTask(task, newName);
 				store.writeTask(task, body.getText());
+				applyTags(tagsText.getText());
 				result = Result.SAVED;
 				shell.close();
 			} catch (Exception ex) {
@@ -122,6 +134,28 @@ final class TaskEditor {
 				}
 			}
 		});
+	}
+
+	/** Reconciles the task's tags with the comma/space-separated field contents. */
+	private void applyTags(String raw) throws IOException {
+		Set<String> desired = new LinkedHashSet<>();
+		for (String part : raw.split("[,\\s]+")) {
+			String slug = KanbanStore.slugify(part);
+			if (!slug.isEmpty()) {
+				desired.add(slug);
+			}
+		}
+		List<String> current = store.tagsForTask(task);
+		for (String slug : current) {
+			if (!desired.contains(slug)) {
+				store.removeTag(task, slug);
+			}
+		}
+		for (String slug : desired) {
+			if (!current.contains(slug)) {
+				store.addTag(task, slug);
+			}
+		}
 	}
 
 	private void error(String message) {

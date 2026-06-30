@@ -4,11 +4,13 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.TreeSet;
 import java.util.stream.Stream;
 
@@ -27,11 +29,22 @@ import java.util.stream.Stream;
  * board reads in a meaningful order rather than alphabetically. Those files are
  * plain text, one name per line, and are optional &mdash; if absent, ordering
  * falls back to case-insensitive alphabetical.
+ *
+ * <p>Tags live in a reserved sibling directory {@code kanban/tag/}. Each tag is
+ * a folder named after a slug and holds <em>relative</em> symbolic links back to
+ * the tagged task files:
+ * <pre>
+ *   kanban/tag/&lt;tag-slug&gt;/&lt;task&gt;.md -&gt; ../../&lt;board&gt;/&lt;lane&gt;/&lt;status&gt;/&lt;task&gt;.md
+ * </pre>
+ * The links are kept in sync as tasks are moved, renamed and deleted.
  */
 public final class KanbanStore {
 
 	private static final String STATUS_ORDER = ".statuses";
 	private static final String LANE_ORDER = ".lanes";
+
+	/** Reserved top-level directory holding tag folders of symbolic links. */
+	private static final String TAG_DIR = "tag";
 
 	private final Path kanbanDir;
 
@@ -56,7 +69,7 @@ public final class KanbanStore {
 	// --- listing -----------------------------------------------------------
 
 	public List<String> boards() {
-		return childDirs(kanbanDir);
+		return childDirs(kanbanDir).stream().filter(n -> !n.equals(TAG_DIR)).toList();
 	}
 
 	public List<String> lanes(String board) {
@@ -98,6 +111,9 @@ public final class KanbanStore {
 	 * columns) so it is immediately usable.
 	 */
 	public void createBoard(String name) throws IOException {
+		if (name.equals(TAG_DIR)) {
+			throw new IOException("'" + TAG_DIR + "' is reserved for tags; pick another board name.");
+		}
 		Path board = kanbanDir.resolve(name);
 		if (Files.exists(board)) {
 			throw new IOException("A board named '" + name + "' already exists.");
@@ -160,7 +176,12 @@ public final class KanbanStore {
 	}
 
 	public void deleteTask(Task task) throws IOException {
+		List<Path> links = linksPointingTo(taskFile(task));
 		Files.deleteIfExists(taskFile(task));
+		for (Path link : links) {
+			Files.deleteIfExists(link);
+			deleteIfEmpty(link.getParent());
+		}
 	}
 
 	public Task renameTask(Task task, String newName) throws IOException {
@@ -172,7 +193,9 @@ public final class KanbanStore {
 		if (Files.exists(dst)) {
 			throw new IOException("A task named '" + newName + "' already exists here.");
 		}
+		List<Path> links = linksPointingTo(taskFile(task));
 		Files.move(taskFile(task), dst);
+		rebindLinks(links, dst);
 		return target;
 	}
 
@@ -187,13 +210,134 @@ public final class KanbanStore {
 		if (Files.exists(dst)) {
 			throw new IOException("A task named '" + task.name() + "' already exists in the target column.");
 		}
+		List<Path> links = linksPointingTo(src);
 		Files.createDirectories(dst.getParent());
 		try {
 			Files.move(src, dst, StandardCopyOption.ATOMIC_MOVE);
 		} catch (IOException atomicUnsupported) {
 			Files.move(src, dst);
 		}
+		rebindLinks(links, dst);
 		return target;
+	}
+
+	// --- tags --------------------------------------------------------------
+
+	/** All known tag slugs (the folder names under {@code kanban/tag/}). */
+	public List<String> tags() {
+		return childDirs(kanbanDir.resolve(TAG_DIR));
+	}
+
+	/** Tag slugs currently applied to the given task. */
+	public List<String> tagsForTask(Task task) {
+		Path canonical = canonical(taskFile(task));
+		List<String> result = new ArrayList<>();
+		for (String slug : tags()) {
+			if (!linksInDirTo(kanbanDir.resolve(TAG_DIR).resolve(slug), canonical).isEmpty()) {
+				result.add(slug);
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * Tags a task by creating a relative symbolic link under
+	 * {@code kanban/tag/<slug>/}. No-op if the task already carries the tag.
+	 *
+	 * @return the slug that was applied
+	 */
+	public String addTag(Task task, String rawTag) throws IOException {
+		String slug = slugify(rawTag);
+		if (slug.isEmpty()) {
+			throw new IOException("A tag must contain at least one letter or digit.");
+		}
+		Path target = taskFile(task);
+		if (!Files.exists(target)) {
+			throw new IOException("Save the task before tagging it.");
+		}
+		if (tagsForTask(task).contains(slug)) {
+			return slug;
+		}
+		Path dir = kanbanDir.resolve(TAG_DIR).resolve(slug);
+		Files.createDirectories(dir);
+		Path link = uniqueLink(dir, task.name());
+		Files.createSymbolicLink(link, dir.relativize(target));
+		return slug;
+	}
+
+	/** Removes a tag from a task (and the tag folder if it becomes empty). */
+	public void removeTag(Task task, String slug) throws IOException {
+		Path dir = kanbanDir.resolve(TAG_DIR).resolve(slug);
+		for (Path link : linksInDirTo(dir, canonical(taskFile(task)))) {
+			Files.delete(link);
+		}
+		deleteIfEmpty(dir);
+	}
+
+	/** Normalises arbitrary text into a filesystem-safe tag slug. */
+	public static String slugify(String raw) {
+		String slug = raw.trim().toLowerCase(Locale.ROOT);
+		slug = slug.replaceAll("[^a-z0-9]+", "-");
+		slug = slug.replaceAll("^-+|-+$", "");
+		return slug;
+	}
+
+	private List<Path> linksPointingTo(Path taskFile) {
+		Path canonical = canonical(taskFile);
+		List<Path> out = new ArrayList<>();
+		for (String slug : tags()) {
+			out.addAll(linksInDirTo(kanbanDir.resolve(TAG_DIR).resolve(slug), canonical));
+		}
+		return out;
+	}
+
+	private void rebindLinks(List<Path> links, Path newTarget) throws IOException {
+		for (Path link : links) {
+			Path dir = link.getParent();
+			Files.deleteIfExists(link);
+			Files.createSymbolicLink(link, dir.relativize(newTarget));
+		}
+	}
+
+	private static List<Path> linksInDirTo(Path dir, Path canonicalTarget) {
+		if (!Files.isDirectory(dir)) {
+			return List.of();
+		}
+		try (Stream<Path> s = Files.list(dir)) {
+			return s.filter(Files::isSymbolicLink)
+					.filter(link -> canonical(link).equals(canonicalTarget))
+					.toList();
+		} catch (IOException e) {
+			throw new UncheckedIOException(e);
+		}
+	}
+
+	/** Real path if it resolves (following links), else a normalised absolute path. */
+	private static Path canonical(Path p) {
+		try {
+			return p.toRealPath();
+		} catch (IOException e) {
+			return p.toAbsolutePath().normalize();
+		}
+	}
+
+	private static Path uniqueLink(Path dir, String baseName) {
+		Path candidate = dir.resolve(baseName + ".md");
+		for (int i = 2; Files.exists(candidate, LinkOption.NOFOLLOW_LINKS); i++) {
+			candidate = dir.resolve(baseName + "-" + i + ".md");
+		}
+		return candidate;
+	}
+
+	private static void deleteIfEmpty(Path dir) throws IOException {
+		if (!Files.isDirectory(dir)) {
+			return;
+		}
+		try (Stream<Path> s = Files.list(dir)) {
+			if (s.findAny().isEmpty()) {
+				Files.delete(dir);
+			}
+		}
 	}
 
 	// --- paths -------------------------------------------------------------

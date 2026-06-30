@@ -3,6 +3,7 @@ package se.canban.app.ui;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.eclipse.swt.SWT;
@@ -44,14 +45,17 @@ public final class KanbanWindow {
 	/** Field separator used when a card is encoded for drag-and-drop transfer. */
 	private static final char SEP = '';
 	private static final int CELL_WIDTH = 210;
+	private static final String ALL_TAGS = "(all tags)";
 
 	private final Display display;
 	private final Shell shell;
 
 	private KanbanStore store;
 	private String currentBoard;
+	private String currentTag; // null = show all tasks
 
 	private Combo boardCombo;
+	private Combo tagCombo;
 	private ScrolledComposite scroll;
 
 	public KanbanWindow(Display display) {
@@ -101,7 +105,7 @@ public final class KanbanWindow {
 	private void buildToolbar() {
 		Composite bar = new Composite(shell, SWT.NONE);
 		bar.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
-		bar.setLayout(new GridLayout(7, false));
+		bar.setLayout(new GridLayout(9, false));
 
 		new Label(bar, SWT.NONE).setText("Board:");
 
@@ -109,6 +113,16 @@ public final class KanbanWindow {
 		boardCombo.setLayoutData(new GridData(200, SWT.DEFAULT));
 		boardCombo.addListener(SWT.Selection, e -> {
 			currentBoard = boardCombo.getText();
+			refreshBoard();
+		});
+
+		new Label(bar, SWT.NONE).setText("Tag:");
+
+		tagCombo = new Combo(bar, SWT.DROP_DOWN | SWT.READ_ONLY);
+		tagCombo.setLayoutData(new GridData(150, SWT.DEFAULT));
+		tagCombo.addListener(SWT.Selection, e -> {
+			String selected = tagCombo.getText();
+			currentTag = (selected.isEmpty() || selected.equals(ALL_TAGS)) ? null : selected;
 			refreshBoard();
 		});
 
@@ -248,7 +262,22 @@ public final class KanbanWindow {
 				boardCombo.setText(currentBoard);
 			}
 		}
+		refreshTagFilter();
 		refreshBoard();
+	}
+
+	private void refreshTagFilter() {
+		List<String> tags = store == null ? List.of() : store.tags();
+		List<String> items = new ArrayList<>();
+		items.add(ALL_TAGS);
+		items.addAll(tags);
+		tagCombo.setItems(items.toArray(String[]::new));
+		if (currentTag != null && tags.contains(currentTag)) {
+			tagCombo.setText(currentTag);
+		} else {
+			currentTag = null;
+			tagCombo.setText(ALL_TAGS);
+		}
 	}
 
 	private void refreshBoard() {
@@ -335,7 +364,11 @@ public final class KanbanWindow {
 		cell.setData(new String[] { lane, status });
 
 		for (String name : store.tasks(currentBoard, lane, status)) {
-			buildCard(cell, new Task(currentBoard, lane, status, name));
+			Task task = new Task(currentBoard, lane, status, name);
+			if (currentTag != null && !store.tagsForTask(task).contains(currentTag)) {
+				continue;
+			}
+			buildCard(cell, task);
 		}
 
 		Button add = new Button(cell, SWT.PUSH | SWT.FLAT);
@@ -347,12 +380,14 @@ public final class KanbanWindow {
 	}
 
 	private void buildCard(Composite cell, Task task) {
+		List<String> tags = store.tagsForTask(task);
 		Label card = new Label(cell, SWT.WRAP | SWT.BORDER);
-		card.setText(task.name());
+		card.setText(tagsLabel(task.name(), tags));
 		card.setData(task);
 		card.setBackground(display.getSystemColor(SWT.COLOR_INFO_BACKGROUND));
 		card.setForeground(display.getSystemColor(SWT.COLOR_INFO_FOREGROUND));
-		card.setToolTipText("Double-click to edit · drag to move");
+		card.setToolTipText("Double-click to edit · drag to move"
+				+ (tags.isEmpty() ? "" : "\nTags: " + String.join(", ", tags)));
 		card.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
 
 		card.addListener(SWT.MouseDoubleClick, e -> openEditor((Task) card.getData()));
@@ -428,6 +463,42 @@ public final class KanbanWindow {
 
 		new MenuItem(menu, SWT.SEPARATOR);
 
+		MenuItem addTag = new MenuItem(menu, SWT.PUSH);
+		addTag.setText("Add tag…");
+		addTag.addListener(SWT.Selection, e -> {
+			String input = inputDialog("Add tag", "Tag name:", "");
+			if (input != null) {
+				try {
+					store.addTag((Task) card.getData(), input);
+					refresh();
+				} catch (IOException ex) {
+					error(ex.getMessage());
+				}
+			}
+		});
+
+		List<String> cardTags = store.tagsForTask((Task) card.getData());
+		if (!cardTags.isEmpty()) {
+			MenuItem removeTag = new MenuItem(menu, SWT.CASCADE);
+			removeTag.setText("Remove tag");
+			Menu removeMenu = new Menu(menu);
+			removeTag.setMenu(removeMenu);
+			for (String slug : cardTags) {
+				MenuItem item = new MenuItem(removeMenu, SWT.PUSH);
+				item.setText("#" + slug);
+				item.addListener(SWT.Selection, e -> {
+					try {
+						store.removeTag((Task) card.getData(), slug);
+						refresh();
+					} catch (IOException ex) {
+						error(ex.getMessage());
+					}
+				});
+			}
+		}
+
+		new MenuItem(menu, SWT.SEPARATOR);
+
 		MenuItem delete = new MenuItem(menu, SWT.PUSH);
 		delete.setText("Delete");
 		delete.addListener(SWT.Selection, e -> {
@@ -449,11 +520,22 @@ public final class KanbanWindow {
 	private void openEditor(Task task) {
 		TaskEditor editor = new TaskEditor(shell, store, task);
 		if (editor.open() != TaskEditor.Result.CANCELLED) {
-			refreshBoard();
+			refresh();
 		}
 	}
 
 	// --- small helpers -----------------------------------------------------
+
+	private static String tagsLabel(String name, List<String> tags) {
+		if (tags.isEmpty()) {
+			return name;
+		}
+		StringBuilder sb = new StringBuilder(name).append('\n');
+		for (String tag : tags) {
+			sb.append('#').append(tag).append(' ');
+		}
+		return sb.toString().strip();
+	}
 
 	private boolean requireStore() {
 		if (store == null) {
